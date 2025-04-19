@@ -1,10 +1,10 @@
 // === prefill-liff.js ===
 ;(function(){
-  const cfg = window.PREFILL_CONFIG || {};
-  const formUrl = cfg.FORM_URL;
-  const liffId  = cfg.LIFF_ID;
+  const cfg     = window.PREFILL_CONFIG || {};
+  const formUrl = cfg.formUrl;
+  const liffId  = cfg.liffId;
   if (!formUrl || !liffId) {
-    console.error('ต้องกำหนด window.PREFILL_CONFIG.FORM_URL และ .LIFF_ID');
+    console.error('ต้องกำหนด window.PREFILL_CONFIG.formUrl และ .liffId');
     return;
   }
 
@@ -20,17 +20,17 @@
     const h   = document.querySelector('iframe[name=h]');
     const img = document.getElementById('profile-img');
 
-    if (!f || !fld || !s || !h) {
-      console.error('ไม่พบองค์ประกอบพื้นฐาน (f, fields, s, h)');
+    if (!f || !fld || !s || !h || !img) {
+      console.error('ไม่พบองค์ประกอบพื้นฐาน (f, fields, s, h, profile-img)');
       return;
     }
 
     // ตั้ง action ของฟอร์ม
     f.action = `https://docs.google.com/forms/d/e/${formId}/formResponse`;
 
-    // สร้างฟิลด์
+    // สร้างฟิลด์ตาม entry.* ทั้งหมด
     params.forEach(([key,label]) => {
-      const id = key.replace(/\./g, '_');
+      const id    = key.replace(/\./g, '_');
       const isUID = label.toLowerCase() === 'uid';
       fld.insertAdjacentHTML('beforeend', `
         <div class="mb-3">
@@ -44,30 +44,34 @@
         </div>`);
     });
 
-    // หา param ชื่อ uid/name
+    // หา entry key สำหรับ uid/name
     const uidParam  = params.find(([,lbl])=>lbl.toLowerCase()==='uid')?.[0];
     const nameParam = params.find(([,lbl])=>lbl.toLowerCase()==='name')?.[0];
 
     // LIFF init + fill
     liff.init({ liffId })
-      .then(() => liff.isLoggedIn() ? liff.getProfile() : liff.login().then(()=>liff.getProfile()))
+      .then(() => liff.isLoggedIn()
+        ? liff.getProfile()
+        : liff.login().then(()=>liff.getProfile())
+      )
       .then(profile => {
+        // UID
         if (uidParam) {
           const inp = document.querySelector(`input[name="${uidParam}"]`);
           if (inp) inp.value = profile.userId;
         }
+        // Name (editable)
         if (nameParam) {
           const inp = document.querySelector(`input[name="${nameParam}"]`);
           if (inp) inp.value = profile.displayName;
         }
-        if (img) {
-          img.src = profile.pictureUrl;
-          img.style.display = 'block';
-        }
+        // Profile image
+        img.src = profile.pictureUrl;
+        img.style.display = 'block';
       })
       .catch(console.error);
 
-    // submit handler
+    // Submit handler
     f.addEventListener('submit', e => {
       if (!f.checkValidity()) {
         e.preventDefault();
